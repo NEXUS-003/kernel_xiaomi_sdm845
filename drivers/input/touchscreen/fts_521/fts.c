@@ -2287,6 +2287,70 @@ static ssize_t fts_grip_area_store(struct device *dev,
 			 __func__, ret);
 		return -EPERM;
 	}
+	return ret;
+}
+
+static ssize_t fts_secure_touch_show (struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct fts_ts_info *info = dev_get_drvdata(dev);
+	struct fts_secure_info *scr_info = info->secure_info;
+	int value = 0;
+
+	logError(1, "%s %s SECURE_TOUCH[R]:st_1st_complete = %d\n",
+		tag, __func__, atomic_read(&scr_info->st_1st_complete));
+	logError(1, "%s %s SECURE_TOUCH[R]:st_pending_irqs = %d\n",
+		tag, __func__, atomic_read(&scr_info->st_pending_irqs));
+
+	if (atomic_read(&scr_info->st_enabled) == 0) {
+		return -EBADF;
+	}
+
+	if (atomic_cmpxchg(&scr_info->st_pending_irqs, -1, 0) == -1)
+		return -EINVAL;
+
+	if (atomic_cmpxchg(&scr_info->st_pending_irqs, 1, 0) == 1) {
+		value = 1;
+	} else if (atomic_cmpxchg(&scr_info->st_1st_complete, 1, 0) == 1) {
+		complete(&scr_info->st_irq_processed);
+		logError(1, "%s %s SECURE_TOUCH[R]:comlpetion st_irq_processed\n", tag, __func__);
+	}
+	return scnprintf(buf, PAGE_SIZE, "%d", value);
+}
+#endif
+
+static ssize_t fts_gesture_enable_store(struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count)
+{
+	unsigned int input = 0;
+	static const char *fts_gesture_on = "01 20";
+	static const char *fts_gesture_off = "00 20";
+	struct fts_ts_info *info = dev_get_drvdata(dev);
+	char *gesture_result;
+	int size = 6 * 2 + 1;
+	if (sscanf(buf, "%u", &input) != 1)
+		return -EINVAL;
+
+	if (input == 1) {
+		gesture_result = (u8 *) kzalloc(size, GFP_KERNEL);
+		fts_gesture_mask_store(info->dev, NULL,
+				fts_gesture_on, strlen(fts_gesture_on));
+		fts_gesture_mask_show(info->dev, NULL,
+				gesture_result);
+	} else {
+		gesture_result = (u8 *) kzalloc(size, GFP_KERNEL);
+		fts_gesture_mask_store(info->dev, NULL,
+				fts_gesture_off, strlen(fts_gesture_off));
+		fts_gesture_mask_show(info->dev, NULL,
+				gesture_result);
+	}
+
+	if (strncmp("{ 00000000 }", gesture_result, size - 1))
+		logError(1, "%s %s: store gesture mask error\n", tag, __func__);
+
+	kfree(gesture_result);
+	gesture_result = NULL;
+
 	return count;
 }
 
@@ -2515,41 +2579,6 @@ static ssize_t fts_secure_touch_show (struct device *dev, struct device_attribut
 }
 #endif
 
-static ssize_t fts_gesture_enable_store(struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count)
-{
-	unsigned int input = 0;
-	static const char *fts_gesture_on = "01 20";
-	static const char *fts_gesture_off = "00 20";
-	struct fts_ts_info *info = dev_get_drvdata(dev);
-	char *gesture_result;
-	int size = 6 * 2 + 1;
-	if (sscanf(buf, "%u", &input) != 1)
-		return -EINVAL;
-
-	if (input == 1) {
-		gesture_result = (u8 *) kzalloc(size, GFP_KERNEL);
-		fts_gesture_mask_store(info->dev, NULL,
-				fts_gesture_on, strlen(fts_gesture_on));
-		fts_gesture_mask_show(info->dev, NULL,
-				gesture_result);
-	} else {
-		gesture_result = (u8 *) kzalloc(size, GFP_KERNEL);
-		fts_gesture_mask_store(info->dev, NULL,
-				fts_gesture_off, strlen(fts_gesture_off));
-		fts_gesture_mask_show(info->dev, NULL,
-				gesture_result);
-	}
-
-	if (strncmp("{ 00000000 }", gesture_result, size - 1))
-		logError(1, "%s %s: store gesture mask error\n", tag, __func__);
-
-	kfree(gesture_result);
-	gesture_result = NULL;
-
-	return count;
-}
 
 static DEVICE_ATTR(fts_lockdown, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   fts_lockdown_show, fts_lockdown_store);
@@ -2660,7 +2689,6 @@ static struct attribute *fts_attr_group[] = {
 	&dev_attr_doze_time.attr,
 	&dev_attr_grip_enable.attr,
 	&dev_attr_grip_area.attr,
-	&dev_attr_gesture_enable.attr,
 	NULL,
 };
 
