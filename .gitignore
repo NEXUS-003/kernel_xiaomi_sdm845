@@ -126,3 +126,9 @@ Android.bp
 
 #out
 /out
+
+# Extra files
+obj
+AnyKernel3
+toolchain
+
