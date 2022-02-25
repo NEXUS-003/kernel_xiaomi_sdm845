@@ -1,4 +1,5 @@
 # Gear Kernel for Poco F1 (beryllium)
+![gear 3](https://user-images.githubusercontent.com/91026175/155732777-a593d6fd-4213-4da4-9424-984ba4272018.png)
 
 ## Device specifications
 
