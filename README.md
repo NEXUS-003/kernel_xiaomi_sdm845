@@ -18,11 +18,7 @@ Release Date | August 2018
 ## Features
 - Always updates with latest caf & linux tag.
 - Compiled with proton clang.
-- Slew of TCP Congestion Algorithms.
-- Added devfreq boost.
-- Default TCP is BBR.
 - Disabled a lot of debug drivers that are not required in production builds.
-- Drivedroid Support.
 - Proper fast charging support according to temps.
 - Sultan's perf critical IRQ framework to affine fast CPUs.
 - Sultan's simple low memory killer.
